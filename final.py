@@ -84,5 +84,5 @@ def visualize_boxes(packed_boxes):
     st.plotly_chart(fig)
 
 # รันแอป
-st.title("📦
+st.title("📦")
 
