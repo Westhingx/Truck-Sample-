@@ -81,13 +81,12 @@ st.title("Container Packing Demo")
 
 # ตัวเลือกตู้คอนเทนเนอร์
 container_options = {
-    "ตู้ 20 ฟุต": {"width": 244, "length": 610, "height": 251, "empty_weight": 2200},
-    "ตู้ 40 ฟุต": {"width": 244, "length": 1219, "height": 251, "empty_weight": 3800},
-    "ตู้ 40 ฟุต High Cube": {"width": 244, "length": 1219, "height": 290, "empty_weight": 3900},
-    "ตู้ 45 ฟุต": {"width": 244, "length": 1370, "height": 290, "empty_weight": 4000},
+    "ตู้ 20 ฟุต": {"width": 244, "length": 610, "height": 251},
+    "ตู้ 40 ฟุต": {"width": 244, "length": 1219, "height": 251},
 }
 
 selected = st.selectbox("เลือกตู้คอนเทนเนอร์", list(container_options.keys()))
+st.write("คุณเลือก:", selected)
 
 # ตรวจดูว่าตัวเลือกขึ้นไหม
 st.write("คุณเลือก:", selected)
