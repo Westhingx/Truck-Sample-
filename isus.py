@@ -1,29 +1,32 @@
 import streamlit as st
 import plotly.graph_objects as go
 
+# -----------------------------
+# ฟังก์ชันช่วยคำนวณ
+# -----------------------------
 def calculate_volume(w, l, h):
-    return w * l * h
+    return w * l * h  # ปริมาตร = กว้าง x ยาว x สูง
 
 def sort_boxes_by_volume(boxes):
     return sorted(boxes, key=lambda b: calculate_volume(b['width'], b['length'], b['height']), reverse=True)
 
-def pack_boxes(container_dim, max_weight, boxes):
-    w, l, h = container_dim
+def pack_boxes(truck_dimensions, max_weight, boxes):
+    truck_w, truck_l, truck_h = truck_dimensions
     used_volume = 0
     total_weight = 0
     packed_boxes = []
-    pos_x = pos_y = pos_z = 0
+    pos_x, pos_y, pos_z = 0, 0, 0
     current_layer_height = 0
 
     for box in sort_boxes_by_volume(boxes):
         for _ in range(box['quantity']):
-            if (pos_x + box['width'] <= w and
-                pos_y + box['length'] <= l and
-                pos_z + box['height'] <= h):
-
+            if (pos_x + box['width'] <= truck_w and
+                pos_y + box['length'] <= truck_l and
+                pos_z + box['height'] <= truck_h):
+                
                 if total_weight + box['weight'] > max_weight:
                     break
-
+                
                 packed_boxes.append({
                     'id': box['id'],
                     'pos': (pos_x, pos_y, pos_z),
@@ -33,12 +36,13 @@ def pack_boxes(container_dim, max_weight, boxes):
 
                 used_volume += calculate_volume(box['width'], box['length'], box['height'])
                 total_weight += box['weight']
+
                 pos_x += box['width']
 
-                if pos_x >= w:
+                if pos_x >= truck_w:
                     pos_x = 0
                     pos_y += box['length']
-                    if pos_y >= l:
+                    if pos_y >= truck_l:
                         pos_y = 0
                         pos_z += current_layer_height
                         current_layer_height = 0
@@ -47,8 +51,9 @@ def pack_boxes(container_dim, max_weight, boxes):
             else:
                 break
 
-    container_volume = calculate_volume(w, l, h)
-    used_percent = (used_volume / container_volume) * 100
+    truck_volume = calculate_volume(truck_w, truck_l, truck_h)
+    used_percent = (used_volume / truck_volume) * 100
+
     return packed_boxes, used_percent, total_weight
 
 def visualize_boxes(packed_boxes):
@@ -56,6 +61,7 @@ def visualize_boxes(packed_boxes):
     for box in packed_boxes:
         x, y, z = box['pos']
         w, l, h = box['dim']
+
         fig.add_trace(go.Mesh3d(
             x=[x, x+w, x+w, x, x, x+w, x+w, x],
             y=[y, y, y+l, y+l, y, y, y+l, y+l],
@@ -65,6 +71,7 @@ def visualize_boxes(packed_boxes):
             alphahull=0,
             name=f"Box {box['id']}"
         ))
+
     fig.update_layout(
         scene=dict(
             xaxis_title='Width (cm)',
@@ -72,38 +79,52 @@ def visualize_boxes(packed_boxes):
             zaxis_title='Height (cm)'
         ),
         margin=dict(l=0, r=0, b=0, t=30),
-        title="📦 ภาพจำลอง"
+        title="📦 ภาพจำลองการจัดเรียงกล่อง"
     )
     st.plotly_chart(fig)
 
-# ——— UI ———
-st.title("Container Packing Demo")
+# -----------------------------
+# เริ่มต้นหน้า Streamlit
+# -----------------------------
+st.title("📦 Vehicle Space Utilization Planner")
+st.markdown("ระบบจำลองการวางกล่องในรถขนส่ง/ตู้คอนเทนเนอร์")
 
-# ตัวเลือกตู้คอนเทนเนอร์
-container_options = {
-    "ตู้ 20 ฟุต": {"width": 244, "length": 610, "height": 251},
-    "ตู้ 40 ฟุต": {"width": 244, "length": 1219, "height": 251},
+# ข้อมูลตู้คอนเทนเนอร์มาตรฐาน
+containers = {
+    "ตู้คอนเทนเนอร์ 20 ฟุต": {"width": 244, "length": 610, "height": 251, "weight": 2200},
+    "ตู้คอนเทนเนอร์ 40 ฟุต": {"width": 244, "length": 1219, "height": 251, "weight": 3800},
+    "ตู้คอนเทนเนอร์ 40 ฟุต High Cube": {"width": 244, "length": 1219, "height": 290, "weight": 3900},
+    "ตู้คอนเทนเนอร์ 45 ฟุต": {"width": 244, "length": 1370, "height": 290, "weight": 4100},
+    "ตู้คอนเทนเนอร์พื้นเรียบ 40 ฟุต": {"width": 244, "length": 1219, "height": 251, "weight": 40000}  # สมมติขนได้ 40 ตัน
 }
 
-selected = st.selectbox("เลือกตู้คอนเทนเนอร์", list(container_options.keys()))
-st.write("คุณเลือก:", selected)
+# 🚛 เลือกตู้คอนเทนเนอร์
+selected_container = st.selectbox("🚢 เลือกตู้คอนเทนเนอร์", list(containers.keys()))
+container = containers[selected_container]
 
-# ตรวจดูว่าตัวเลือกขึ้นไหม
-st.write("คุณเลือก:", selected)
+# แสดงขนาดและน้ำหนัก
+st.write(f"**ขนาด:** กว้าง {container['width']} cm, ยาว {container['length']} cm, สูง {container['height']} cm")
+st.write(f"**น้ำหนักเปล่า:** {container['weight']} กิโลกรัม")
 
-container = container_options[selected]
+# ปุ่มคำนวณปริมาตร
+if st.button("📐 คำนวณพื้นที่ตู้คอนเทนเนอร์"):
+    vol = calculate_volume(container['width'], container['length'], container['height']) / 1_000_000  # m³
+    st.success(f"ปริมาตรภายในตู้: {vol:.2f} ลูกบาศก์เมตร")
 
-st.write("ขนาด:", container["width"], container["length"], container["height"])
-
-# ใส่กล่องตัวอย่าง
+# กล่องตัวอย่าง
 boxes = [
     {'id': 'A', 'width': 50, 'length': 60, 'height': 40, 'weight': 30, 'quantity': 4},
     {'id': 'B', 'width': 40, 'length': 40, 'height': 40, 'weight': 20, 'quantity': 10},
+    {'id': 'C', 'width': 100, 'length': 100, 'height': 50, 'weight': 80, 'quantity': 1},
 ]
 
-if st.button("คำนวณ"):
-    dim = (container["width"], container["length"], container["height"])
-    packed, used_pct, tot_wt = pack_boxes(dim, 10000, boxes)
-    st.write("พื้นที่ใช้:", used_pct, "%")
-    st.write("น้ำหนักรวม:", tot_wt, "กก.")
-    visualize_boxes(packed)
+# ปุ่มจัดกล่อง
+if st.button("📦 เริ่มจัดเรียงกล่องในตู้"):
+    truck_dim = (container['width'], container['length'], container['height'])
+    max_weight = 40000  # กำหนดไว้สูงสุด (เช่น 40 ตัน)
+    packed_boxes, used_percent, total_weight = pack_boxes(truck_dim, max_weight, boxes)
+
+    st.subheader("📊 สรุปผลการจัดวาง")
+    st.write(f"- พื้นที่ที่ใช้: **{used_percent:.2f}%**")
+    st.write(f"- น้ำหนักรวมกล่อง: **{total_weight:.2f} กก.**")
+    visualize_boxes(packed_boxes)
