@@ -1,8 +1,8 @@
-import streamlit as st 
+import streamlit as st
 import plotly.graph_objects as go
 
 # -----------------------------
-# ฟังก์ชันการคำนวณต่าง ๆ
+# ฟังก์ชันคำนวณ
 # -----------------------------
 def calculate_volume(w, l, h):
     return w * l * h
@@ -10,23 +10,23 @@ def calculate_volume(w, l, h):
 def sort_boxes_by_volume(boxes):
     return sorted(boxes, key=lambda b: calculate_volume(b['width'], b['length'], b['height']), reverse=True)
 
-def pack_boxes(truck_dimensions, max_weight, boxes):
-    truck_w, truck_l, truck_h = truck_dimensions
+def pack_boxes(container_dim, max_weight, boxes):
+    w, l, h = container_dim
     used_volume = 0
     total_weight = 0
     packed_boxes = []
-    pos_x, pos_y, pos_z = 0, 0, 0
+    pos_x = pos_y = pos_z = 0
     current_layer_height = 0
 
     for box in sort_boxes_by_volume(boxes):
         for _ in range(box['quantity']):
-            if (pos_x + box['width'] <= truck_w and
-                pos_y + box['length'] <= truck_l and
-                pos_z + box['height'] <= truck_h):
-                
+            if (pos_x + box['width'] <= w and
+                pos_y + box['length'] <= l and
+                pos_z + box['height'] <= h):
+
                 if total_weight + box['weight'] > max_weight:
                     break
-                
+
                 packed_boxes.append({
                     'id': box['id'],
                     'pos': (pos_x, pos_y, pos_z),
@@ -36,13 +36,12 @@ def pack_boxes(truck_dimensions, max_weight, boxes):
 
                 used_volume += calculate_volume(box['width'], box['length'], box['height'])
                 total_weight += box['weight']
-
                 pos_x += box['width']
 
-                if pos_x >= truck_w:
+                if pos_x >= w:
                     pos_x = 0
                     pos_y += box['length']
-                    if pos_y >= truck_l:
+                    if pos_y >= l:
                         pos_y = 0
                         pos_z += current_layer_height
                         current_layer_height = 0
@@ -51,9 +50,8 @@ def pack_boxes(truck_dimensions, max_weight, boxes):
             else:
                 break
 
-    truck_volume = calculate_volume(truck_w, truck_l, truck_h)
-    used_percent = (used_volume / truck_volume) * 100
-
+    container_volume = calculate_volume(w, l, h)
+    used_percent = (used_volume / container_volume) * 100
     return packed_boxes, used_percent, total_weight
 
 def visualize_boxes(packed_boxes):
@@ -84,66 +82,60 @@ def visualize_boxes(packed_boxes):
     st.plotly_chart(fig)
 
 # -----------------------------
-# เริ่มต้นส่วนของ Streamlit UI
+# UI เริ่มต้น
 # -----------------------------
-st.title("📦 Vehicle Space Utilization Planner")
+st.title("🚢 Container Packing Planner")
+st.markdown("ระบบจำลองการจัดเรียงกล่องสินค้าใน **ตู้คอนเทนเนอร์** แบบ 3 มิติ")
 
-st.markdown("""
-ระบบช่วยจำลองการจัดกล่องสินค้าในตู้คอนเทนเนอร์  
-**พร้อมคำนึงถึงน้ำหนักและขนาดตู้ที่เลือก**
-""")
-
-# ✅ ตัวเลือกตู้คอนเทนเนอร์
-container_types = {
-    "ตู้คอนเทนเนอร์ 20 ฟุต": {
+# 🔲 ตัวเลือกตู้คอนเทนเนอร์
+container_options = {
+    "ตู้ 20 ฟุต (20ft)": {
         "width": 244, "length": 610, "height": 251, "empty_weight": 2200
     },
-    "ตู้คอนเทนเนอร์ 40 ฟุต": {
+    "ตู้ 40 ฟุต (40ft)": {
         "width": 244, "length": 1219, "height": 251, "empty_weight": 3800
     },
-    "ตู้คอนเทนเนอร์ 40 ฟุต High Cube": {
+    "ตู้ 40 ฟุต High Cube": {
         "width": 244, "length": 1219, "height": 290, "empty_weight": 3900
     },
-    "ตู้คอนเทนเนอร์ 45 ฟุต": {
+    "ตู้ 45 ฟุต (45ft)": {
         "width": 244, "length": 1370, "height": 290, "empty_weight": 4000
     }
 }
 
-selected_container = st.selectbox("🚢 เลือกขนาดตู้คอนเทนเนอร์", list(container_types.keys()))
-container = container_types[selected_container]
+selected_container = st.selectbox("เลือกขนาดตู้คอนเทนเนอร์", list(container_options.keys()))
+container = container_options[selected_container]
 
-st.success(f"""
-**ขนาดตู้:** {selected_container}  
+# น้ำหนักบรรทุกสูงสุดสมมุติ (รวมตู้)
+max_total_weight = 30000  # กิโลกรัม
+available_weight = max_total_weight - container['empty_weight']
+
+st.info(f"""
+📏 **ขนาดตู้:**  
 - กว้าง: {container['width']} cm  
 - ยาว: {container['length']} cm  
 - สูง: {container['height']} cm  
-- น้ำหนักเปล่า: {container['empty_weight']} กก.
+⚖️ **น้ำหนักบรรทุกสุทธิได้:** {available_weight} กก. (หลังหักน้ำหนักตู้)
 """)
 
-# ใส่น้ำหนักรวมที่อนุญาต (เช่น 30,000 kg ลบด้วยน้ำหนักเปล่า)
-max_total_weight = 30000  # น้ำหนักรวมสูงสุดของตู้
-max_weight_kg = max_total_weight - container["empty_weight"]
-
-# 📦 รายการกล่องสินค้า (ตัวอย่าง fix)
+# 📦 กล่องตัวอย่าง
 boxes = [
     {'id': 'A', 'width': 50, 'length': 60, 'height': 40, 'weight': 30, 'quantity': 4},
     {'id': 'B', 'width': 40, 'length': 40, 'height': 40, 'weight': 20, 'quantity': 10},
     {'id': 'C', 'width': 100, 'length': 100, 'height': 50, 'weight': 80, 'quantity': 1},
 ]
 
-# 🧮 ปุ่มคำนวณ
-if st.button("🔍 คำนวณการจัดวางกล่อง"):
-    truck_dim = (container["width"], container["length"], container["height"])
-    packed_boxes, used_percent, total_weight = pack_boxes(truck_dim, max_weight_kg, boxes)
+if st.button("🚀 คำนวณการจัดวางกล่อง"):
+    dim = (container['width'], container['length'], container['height'])
+    packed_boxes, used_percent, total_weight = pack_boxes(dim, available_weight, boxes)
 
-    st.subheader("📊 สรุปผลการจัดวาง")
-    st.write(f"- พื้นที่ที่ใช้: **{used_percent:.2f}%** ของพื้นที่ทั้งหมด")
-    st.write(f"- น้ำหนักรวมของกล่อง: **{total_weight:.2f} กก.** / จำกัดสูงสุด {max_weight_kg:.0f} กก.")
+    st.subheader("📊 สรุปผล")
+    st.write(f"✅ พื้นที่ใช้งาน: **{used_percent:.2f}%**")
+    st.write(f"⚖️ น้ำหนักรวมกล่อง: **{total_weight:.2f} กก.** / {available_weight:.0f} กก.")
 
-    if total_weight >= max_weight_kg:
-        st.warning("⚠️ น้ำหนักรวมเกินขีดจำกัด กรุณาปรับจำนวนหรือขนาดกล่อง")
+    if total_weight >= available_weight:
+        st.warning("⚠️ น้ำหนักเกินขีดจำกัดของตู้ กรุณาลดจำนวนหรือขนาดกล่อง")
 
     visualize_boxes(packed_boxes)
-
 else:
-    st.info("กดปุ่มด้านบนเพื่อเริ่มคำนวณการจัดวางกล่อง")
+    st.info("กรุณากดปุ่มด้านบนเพื่อเริ่มการคำนวณจัดเรียงกล่อง")
